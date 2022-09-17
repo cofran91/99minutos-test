@@ -87,6 +87,6 @@ php artisan db:seed
 * Consulte la documentación de los servicios
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-https://documenter.getpostman.com/view/11854770/2s7YmtDRLz
+https://documenter.getpostman.com/view/11854770/2s7YfU8CZV
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
