@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\AuthController;
 
 /*
 |--------------------------------------------------------------------------
@@ -15,7 +16,9 @@ use App\Http\Controllers\UserController;
 |
 */
 
-Route::group([ 'prefix' => 'users'], function (){
+Route::post('login', [AuthController::class, 'login']);
+
+Route::group(['middleware' => ['jwt.auth', 'adminVerify'], 'prefix' => 'users'], function (){
     Route::get('/', [UserController::class, 'index']);
     Route::post('create', [UserController::class, 'save']);
     Route::put('update/{id}', [UserController::class, 'update']);
