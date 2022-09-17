@@ -12,7 +12,7 @@
 | PHP  					| `PHP >= 7.4.0`				|			
 | Base de datos      	| `MySql >= 5.7`		    	| 
 | Composer              | `>= 2.1.12`                   |
-| Laravel               | `Laravel = 8`               	|
+| Laravel               | `Laravel = 9`               	|
 
 
 .
