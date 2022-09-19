@@ -376,6 +376,40 @@ class OrderController extends Controller
         }
     }
 
+    /**
+     * Ordenes - Simular
+     * Simula un nueva Orden.
+     * @param  \Illuminate\Http\Request  $request
+     * @bodyParam origin_address array required array con la información de la dirección de origen
+     * @bodyParam origin_address.latitude string numeric latitud de la coordenada de origen
+     * @bodyParam origin_address.logitude string numeric logitud de la coordenada de origen
+     * @bodyParam origin_address.city string required ciudad
+     * @bodyParam origin_address.road_type string required Tipo de via
+     * @bodyParam origin_address.road_name string required Nombre de la via
+     * @bodyParam origin_address.road_identifier string Identificador de la via
+     * @bodyParam origin_address.second_way_number integer required Número de la segunda via
+     * @bodyParam origin_address.second_way_identifier string Identificador de la segunda via
+     * @bodyParam origin_address.House_number string required Número de la casa
+     * @bodyParam origin_address.house_number_identifier string identificador de la casa
+     * @bodyParam origin_address.comments string Otras instrucciones
+
+     * @bodyParam arrival_address array required array con la información de la dirección de destino
+     * @bodyParam arrival_address.latitude string numeric latitud de la coordenada de destino
+     * @bodyParam origin_address.logitude string numeric logitud de la coordenada de destino
+     * @bodyParam arrival_address.city string required ciudad
+     * @bodyParam arrival_address.road_type string required Tipo de via
+     * @bodyParam arrival_address.road_name string required Nombre de la via
+     * @bodyParam arrival_address.road_identifier string Identificador de la via
+     * @bodyParam arrival_address.second_way_number integer required Número de la segunda via
+     * @bodyParam arrival_address.second_way_identifier string Identificador de la segunda via
+     * @bodyParam arrival_address.House_number string require Número de la casad
+     * @bodyParam arrival_address.house_number_identifier string identificador de la casa
+     * @bodyParam arrival_address.comments string Otras instrucciones
+
+     * @bodyParam product_amount integer required Cantidad de productos 
+     * @bodyParam product_weight decimal required Peso de los productos 
+     * @return \Illuminate\Http\Response
+     */
     public function simulate(Request $request, $internParam = false)
     {
         try {
