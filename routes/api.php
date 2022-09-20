@@ -28,9 +28,14 @@ Route::group(['middleware' => ['jwt.auth', 'adminVerify'], 'prefix' => 'users'],
 
 Route::group(['middleware' => ['jwt.auth'], 'prefix' => 'orders'], function (){
         Route::post('create', [OrderController::class, 'save']);
+        
         Route::post('simulate', [OrderController::class, 'simulate']);
         Route::get('details/{id}', [OrderController::class, 'index']);
         Route::put('cancellation/{id}', [OrderController::class, 'cancel']);
+
+    Route::group(['middleware' => ['clientVerify'] ], function (){
+        Route::post('massive-create', [OrderController::class, 'massiveSave']);
+    });
 
     Route::group(['middleware' => ['adminVerify'] ], function (){
         Route::put('update/{id}', [OrderController::class, 'update']);

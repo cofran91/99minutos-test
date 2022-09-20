@@ -172,12 +172,13 @@ class OrderController extends Controller
                 $orderData['status_id'] = 1;
                 $orderData['origin_address_id'] = $originAddress->id;
                 $orderData['arrival_address_id'] = $arrivalAddress->id;
-                $orderData['value'] = $this->simulate($request, true);
+                $orderData['value'] = $this->calculateOrderValue($request);
                 $orderNew = new Order;
                 $orderNew = $orderNew->create( $orderData );
                 if (  $orderNew ) {
                     DB::commit();
                     $data = [
+                        'Id de la orden' => $orderNew->id,
                         'Estado' => $orderNew->status->name,
                         'Cliente' => $orderNew->user->name,
                         'Origen' => $orderNew->originAddress->city,
@@ -217,11 +218,101 @@ class OrderController extends Controller
     }
 
     /**
+     * Ordenes - Creación
+     * Crea un nueva Orden.
+     * @param  \Illuminate\Http\Request  $request
+     * @bodyParam origin_address_id integer Id del de la dirección de origien
+     * @bodyParam arrival_address_id integer Id del de la dirección de destino
+     * @bodyParam product_amount integer required Cantidad de productos 
+     * @bodyParam product_weight decimal required Peso de los productos 
+     * @return \Illuminate\Http\Response
+     */
+    public function massiveSave(Request $request)
+    {
+        try {
+            if (empty($request->file('file'))) {
+                return response()->json([
+                "success" => false,
+                "message" => "Debe subir un archivo CSV",
+            ], 400 );
+            }
+            $dataFileCsv = fopen($request->file('file'), "r");
+            
+            $ordersData = array();
+            $ordersHeader = array();
+            $rowNumber = 0;
+            
+            while ( $data = fgetcsv($dataFileCsv, 1000, ";") ) {
+
+                if ($rowNumber > 0) {
+
+                    $ordersData[$rowNumber] = array(
+                        'product_amount' => $data[0],
+                        'product_weight' => $data[1],
+                        'origin_address_id' => (int) $data[2],
+                        'arrival_address_id' => (int) $data[3]
+                    );
+
+                    $validate = Validator::make($ordersData[$rowNumber], [
+                        'origin_address_id' => 'required|exists:addresses,id',
+                        'arrival_address_id' => 'required|exists:addresses,id',
+                        'product_amount' => 'required',
+                        'product_weight' => 'required'
+                    ]);
+                    if( $validate->fails() ){
+                        $errors[$rowNumber] = $validate->errors(); 
+                        $rowNumber++;
+                        continue;
+                    }
+                    $ordersData[$rowNumber]['origin_address'] = Address::where('id', $data[2])->first();
+                    $ordersData[$rowNumber]['arrival_address'] = Address::where('id', $data[3])->first();
+                    $ordersData[$rowNumber]['user_id'] = auth()->user()->id;
+                    $ordersData[$rowNumber]['status_id'] = 1;
+                    $ordersData[$rowNumber]['value'] = $this->calculateOrderValue($ordersData[$rowNumber]);
+
+                    $orderNew = new Order;
+                    $orderNew = $orderNew->create( $ordersData[$rowNumber] );
+
+                    $dataResult[$rowNumber] = [
+                        'Id de la orden' => $orderNew->id,
+                        'Estado' => $orderNew->status->name,
+                        'Cliente' => $orderNew->user->name,
+                        'Origen' => $orderNew->originAddress->city,
+                        'Destino' => $orderNew->arrivalAddress->city,
+                        'Valor del envio' => "$".number_format($orderNew->value,2)
+                    ];
+                }
+
+                $rowNumber++;
+            }
+            fclose($dataFileCsv);
+            if (isset( $errors) ) {
+                return response()->json([
+                    "success" => false,
+                    "message" => "Existen errores en los datos enviados de algunas ordenes",
+                    "errors" => $errors,
+                ], 400 ); 
+            }
+
+            return response()->json([
+                "success" => true,
+                "message" => "Esta es la orden con este id",
+                "data" => $dataResult,
+            ], 200 );
+        } catch (Exception $e) {
+            return response()->json([
+                "success" => false,
+                "message" => "Ocurrio un error",
+            ], 400 );
+        }
+    }
+
+    /**
      * Ordenes - Actualización
      * Actualiza una orden.
      * @param  \Illuminate\Http\Request  $request
      * @urlParam  id required Id de la orden a actualizar
-     * @bodyParam status_id array integer Id del estado que desea actualizar
+     * @bodyParam status_id integer Id del estado que desea actualizar
      * @return \Illuminate\Http\Response
      */
     public function update(Request $request, $id)
@@ -475,63 +566,66 @@ class OrderController extends Controller
                 ], 400 ); 
             }
 
-            // calculate distance
-            $originAddress = $request->input('origin_address');
-            $arrivalAddress = $request->input('arrival_address');
+            $orderValue = $this->calculateOrderValue($request->all());
 
-            $theta = $originAddress['longitude'] - $arrivalAddress['longitude'];
-            $distance = sin(deg2rad($originAddress['latitude'])) * sin(deg2rad($arrivalAddress['latitude'])) +  cos(deg2rad($originAddress['latitude'])) * cos(deg2rad($arrivalAddress['latitude'])) * cos(deg2rad($theta));
-            $distance = acos($distance);
-            $distance = rad2deg($distance);
-            $distance = $distance * 60 * 1.1515 * 1.609344;
-
-            // calculate package type
-            if ($request['product_weight'] <= 5) {
-                $packageType = 'S';
-            }else if($request['product_weight'] > 5 && $request['product_weight'] <= 15){
-                $packageType = 'M';
-            }elseif ($request['product_weight'] > 15 && $request['product_weight'] <= 25) {
-                $packageType = 'L';
-            }
-
-            // asignamos valor del kilometro
-            switch ( $packageType ) {
-                case 'S':
-                    $valuePerDistance = 100; 
-                    break;
-                case 'M':
-                    $valuePerDistance = 300; 
-                    break;
-                case 'L':
-                    $valuePerDistance = 500; 
-                    break;
-            }
-
-            // asignamos el coeficiente de acuerdo a la distancia
-            if ($distance <= 50) {
-               $coeficientPerDistance = 1;
-            }elseif ($distance > 50 && $distance <= 100) {
-               $coeficientPerDistance = 0.8;
-            }elseif ($distance > 100 && $distance <= 200) {
-               $coeficientPerDistance = 0.6;
-            }
-            $orderValue = $distance*$valuePerDistance*$coeficientPerDistance;
-
-            if ( $internParam ) {
-                return $orderValue; 
-            }else{
-                return response()->json([
-                    "success" => true,
-                    "message" => "Valor total del envio",
-                    "data" => "$".number_format($orderValue, 2),
-                ], 200 );
-            }
+            return response()->json([
+                "success" => true,
+                "message" => "Valor total del envio",
+                "data" => "$".number_format($orderValue, 2),
+            ], 200 );
         }catch( Throwable $e ){
             return response()->json([
                 "success" => false,
                 "message" => "Ocurrio un error",
             ], 400 );
         }
+    }
+
+    public function calculateOrderValue($data)
+    {
+        // calculate distance
+        $originAddress = $data['origin_address'];
+        $arrivalAddress = $data['arrival_address'];
+
+        $theta = $originAddress['longitude'] - $arrivalAddress['longitude'];
+        $distance = sin(deg2rad($originAddress['latitude'])) * sin(deg2rad($arrivalAddress['latitude'])) +  cos(deg2rad($originAddress['latitude'])) * cos(deg2rad($arrivalAddress['latitude'])) * cos(deg2rad($theta));
+        $distance = acos($distance);
+        $distance = rad2deg($distance);
+        $distance = $distance * 60 * 1.1515 * 1.609344;
+
+        // calculate package type
+        if ($data['product_weight'] <= 5) {
+            $packageType = 'S';
+        }else if($data['product_weight'] > 5 && $data['product_weight'] <= 15){
+            $packageType = 'M';
+        }elseif ($data['product_weight'] > 15 && $data['product_weight'] <= 25) {
+            $packageType = 'L';
+        }
+
+        // asignamos valor del kilometro
+        switch ( $packageType ) {
+            case 'S':
+                $valuePerDistance = 100; 
+                break;
+            case 'M':
+                $valuePerDistance = 300; 
+                break;
+            case 'L':
+                $valuePerDistance = 500; 
+                break;
+        }
+
+        // asignamos el coeficiente de acuerdo a la distancia
+        if ($distance <= 50) {
+           $coeficientPerDistance = 1;
+        }elseif ($distance > 50 && $distance <= 100) {
+           $coeficientPerDistance = 0.8;
+        }elseif ($distance > 100 && $distance <= 200) {
+           $coeficientPerDistance = 0.6;
+        }
+        $orderValue = $distance*$valuePerDistance*$coeficientPerDistance;
+
+        return $orderValue;
     }
 
     public function clientValidation($order)
